@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { postKitePlaceOrder } from "@/components/dashboard/kite-fetch";
 
 type MaCrossBarState = {
   index: number;
@@ -125,6 +126,17 @@ export default function MaCrossStrategyView() {
   const [result, setResult] = useState<ApiOk | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [execQty, setExecQty] = useState(1);
+  const [execProduct, setExecProduct] = useState("MIS");
+  const [execLoading, setExecLoading] = useState(false);
+  const [execOrderResult, setExecOrderResult] = useState<{
+    txType: string;
+    ok: boolean;
+    orderId?: string;
+    error?: string;
+  } | null>(null);
+  const [execOrderErr, setExecOrderErr] = useState<string | null>(null);
 
   const liveAbortRef = useRef<AbortController | null>(null);
   const [liveActive, setLiveActive] = useState(false);
@@ -366,6 +378,72 @@ export default function MaCrossStrategyView() {
     }
   }
 
+  async function onExecute(e: FormEvent) {
+    e.preventDefault();
+    setExecLoading(true);
+    setExecOrderErr(null);
+    setExecOrderResult(null);
+    setErr(null);
+
+    const q = new URLSearchParams({
+      symbol: symbol.trim(),
+      interval,
+      from: from.trim(),
+      to: to.trim(),
+      length: String(length),
+      confirm_bars: String(confirmBars),
+    });
+
+    let stratResult: ApiOk;
+    try {
+      const r = await fetch(`/api/kite/ma-cross?${q.toString()}`);
+      const j = (await r.json()) as { error?: string } & Partial<ApiOk>;
+      if (!r.ok) {
+        setExecOrderErr(j.error || r.statusText);
+        setExecLoading(false);
+        return;
+      }
+      stratResult = j as ApiOk;
+      setResult(stratResult);
+    } catch (caught) {
+      setExecOrderErr(caught instanceof Error ? caught.message : "strategy fetch failed");
+      setExecLoading(false);
+      return;
+    }
+
+    const { longEntry, shortEntry } = stratResult.latest;
+    if (!longEntry && !shortEntry) {
+      setExecOrderErr("No active signal — longEntry and shortEntry are both false on the latest bar.");
+      setExecLoading(false);
+      return;
+    }
+
+    const rawSymbol = symbol.trim();
+    const colonIdx = rawSymbol.indexOf(":");
+    const exchange = colonIdx > -1 ? rawSymbol.slice(0, colonIdx).toUpperCase() : "NSE";
+    const tradingsymbol = colonIdx > -1 ? rawSymbol.slice(colonIdx + 1) : rawSymbol;
+    const txType = longEntry ? "BUY" : "SELL";
+
+    try {
+      const res = await postKitePlaceOrder({
+        variety: "regular",
+        exchange,
+        tradingsymbol,
+        transaction_type: txType,
+        quantity: execQty,
+        product: execProduct,
+        order_type: "MARKET",
+        validity: "DAY",
+        tag: "macross",
+      });
+      setExecOrderResult({ txType, ...res });
+    } catch (caught) {
+      setExecOrderErr(caught instanceof Error ? caught.message : "order placement failed");
+    } finally {
+      setExecLoading(false);
+    }
+  }
+
   const tail = result?.series?.slice(-40) ?? [];
   const last = result?.latest?.last;
 
@@ -440,6 +518,28 @@ export default function MaCrossStrategyView() {
           SMA uses the last {length} closes (same as Pine <code className="font-mono">ta.sma(close, length)</code>
           ). Long/short fire after {confirmBars} consecutive closes above/below that MA.
         </p>
+        <label className="grid gap-1 text-sm">
+          <span className="text-zinc-600 dark:text-zinc-400">Qty (execute)</span>
+          <input
+            type="number"
+            min={1}
+            value={execQty}
+            onChange={(e) => setExecQty(Number(e.target.value))}
+            className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-900"
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="text-zinc-600 dark:text-zinc-400">Product (execute)</span>
+          <select
+            value={execProduct}
+            onChange={(e) => setExecProduct(e.target.value)}
+            className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-900"
+          >
+            <option value="MIS">MIS</option>
+            <option value="NRML">NRML</option>
+            <option value="CNC">CNC</option>
+          </select>
+        </label>
         <div className="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-3">
           <button
             type="submit"
@@ -465,8 +565,43 @@ export default function MaCrossStrategyView() {
               Stop live
             </button>
           )}
+          <button
+            type="button"
+            disabled={execLoading || loading}
+            onClick={(e) => void onExecute(e as unknown as FormEvent)}
+            className="rounded-lg border border-violet-700/40 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-900 disabled:opacity-50 dark:border-violet-600/50 dark:bg-violet-950/40 dark:text-violet-100"
+          >
+            {execLoading ? "Executing…" : "Execute strategy"}
+          </button>
         </div>
       </form>
+
+      {execOrderErr ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
+          Execute: {execOrderErr}
+        </p>
+      ) : null}
+
+      {execOrderResult ? (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            execOrderResult.ok
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+              : "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20"
+          }`}
+        >
+          {execOrderResult.ok ? (
+            <p className="font-medium text-emerald-800 dark:text-emerald-200">
+              Order placed — {execOrderResult.txType} · order id{" "}
+              <span className="font-mono">{execOrderResult.orderId}</span>
+            </p>
+          ) : (
+            <p className="font-medium text-red-700 dark:text-red-300">
+              Order failed ({execOrderResult.txType}): {execOrderResult.error}
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {liveErr ? (
         <p className="text-sm text-red-600 dark:text-red-400">{liveErr}</p>

@@ -2,6 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+const istFmt = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+function formatIST(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : istFmt.format(d);
+}
+
 type Row = {
   id: string;
   createdAt: string;
@@ -161,7 +175,7 @@ export default function AutomatedOrdersView() {
                     className="border-b border-zinc-100 dark:border-zinc-800"
                   >
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                      {r.createdAt}
+                      {formatIST(r.createdAt)}
                     </td>
                     <td className="px-3 py-2">
                       <span

@@ -58,3 +58,5 @@ env/
 
 # eslint
 .eslintcache
+
+.cursor/

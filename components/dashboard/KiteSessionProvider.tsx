@@ -85,10 +85,11 @@ export function KiteSessionProvider({ children }: { children: React.ReactNode })
     try {
       await postKiteLogout();
       setProfile({ connected: false });
+      router.replace("/");
     } finally {
       setIsLoggingOut(false);
     }
-  }, []);
+  }, [router]);
 
   const dismissKiteMsg = useCallback(() => setKiteRedirectMsg(null), []);
 

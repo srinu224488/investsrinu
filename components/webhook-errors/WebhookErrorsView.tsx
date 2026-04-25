@@ -2,6 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+const istFmt = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+function formatIST(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : istFmt.format(d);
+}
+
 type ErrorRow = {
   id: string;
   loggedAt: string;
@@ -92,7 +106,7 @@ export default function WebhookErrorsView() {
                   className="font-mono text-xs text-zinc-500 dark:text-zinc-400"
                   dateTime={row.loggedAt}
                 >
-                  {row.loggedAt}
+                  {formatIST(row.loggedAt)}
                 </time>
                 {row.error_type ? (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">

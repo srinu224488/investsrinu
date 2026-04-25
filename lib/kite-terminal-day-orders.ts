@@ -28,6 +28,8 @@ export type TerminalDayOrderRow = {
   order_type: string;
   price: number;
   status: string;
+  /** Kite client order tag (e.g. `tv` / `tv-strategy`) — use to tie rows to webhook-placed orders. */
+  tag?: string;
 };
 
 export function isTerminalKiteOrderStatus(status: string): boolean {
@@ -40,6 +42,7 @@ function rowFromKite(o: Record<string, unknown>): TerminalDayOrderRow | null {
   if (!order_id) return null;
   const st = str(o.status);
   if (!isTerminalKiteOrderStatus(st)) return null;
+  const tagRaw = str(o.tag);
   return {
     order_id,
     order_timestamp: str(o.order_timestamp) || null,
@@ -53,6 +56,7 @@ function rowFromKite(o: Record<string, unknown>): TerminalDayOrderRow | null {
     order_type: str(o.order_type).toUpperCase() || "—",
     price: num(o.price),
     status: st || "—",
+    ...(tagRaw ? { tag: tagRaw } : {}),
   };
 }
 

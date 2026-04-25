@@ -93,7 +93,7 @@ export default function KiteHeaderSession() {
       href="/api/kite/login"
       className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 sm:text-sm"
     >
-      Connect Zerodha
+      Connect
     </a>
   );
 }

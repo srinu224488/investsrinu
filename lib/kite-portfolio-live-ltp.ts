@@ -89,6 +89,10 @@ export function applyLtpTick(
       const avg = num(r.average_price);
       r.unrealised = (ltpInr - avg) * q * mult;
       r.pnl = num(r.unrealised) + num(r.realised);
+      const close = num(r.close_price);
+      if (close > 0) {
+        r.day_change_pct = ((ltpInr - close) / close) * 100;
+      }
       changed = true;
     }
   };

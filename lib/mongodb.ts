@@ -14,10 +14,18 @@ export async function getMongoDb(): Promise<Db | null> {
 
   const g = globalThis as GlobalMongo;
   if (!g.__kiteobMongoDb) {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+    });
     g.__kiteobMongoDb = client.connect().then((c) => {
       const name = process.env.MONGODB_DB?.trim() || DEFAULT_DB;
       return c.db(name);
+    });
+    // clear cached promise on failure so next call retries
+    g.__kiteobMongoDb.catch(() => {
+      g.__kiteobMongoDb = undefined;
     });
   }
   return g.__kiteobMongoDb;

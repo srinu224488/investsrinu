@@ -820,8 +820,12 @@ export default function OpenOrderHistoryView() {
               instruments)
             </h2>
             <p className="mt-1 text-xs text-zinc-500">
-              COMPLETE, CANCELLED, REJECTED, CANCELLED AMO — grouped by
-              exchange + symbol. Click a row header to show or hide orders.
+              COMPLETE, CANCELLED, REJECTED, CANCELLED AMO — every terminal order
+              in today&apos;s Kite day book for this account (not only webhooks).
+              Compare with Alerts using <span className="font-mono">Tag</span>{" "}
+              (webhook orders use <span className="font-mono">tv</span> or{" "}
+              <span className="font-mono">tv-…</span> when set). Exit/cancel
+              legs from automation may not match the alert row line-by-line.
             </p>
           </header>
           <div className="flex flex-col gap-4 p-4">
@@ -870,7 +874,7 @@ export default function OpenOrderHistoryView() {
                       aria-label={`${group.tradingsymbol} ${group.exchange} orders`}
                       className="overflow-x-auto"
                     >
-                      <table className="w-full min-w-[640px] text-left text-xs">
+                      <table className="w-full min-w-[720px] text-left text-xs">
                         <thead>
                           <tr className="border-b border-zinc-800/90 text-zinc-500">
                             <th className="px-4 py-2 font-medium">Time</th>
@@ -880,6 +884,7 @@ export default function OpenOrderHistoryView() {
                             <th className="px-3 py-2 font-medium">Avg</th>
                             <th className="px-3 py-2 font-medium">Ord type</th>
                             <th className="px-3 py-2 font-medium">Price</th>
+                            <th className="px-3 py-2 font-medium">Tag</th>
                             <th className="px-4 py-2 font-medium">Status</th>
                           </tr>
                         </thead>
@@ -919,6 +924,9 @@ export default function OpenOrderHistoryView() {
                               </td>
                               <td className="px-3 py-2.5 font-mono text-zinc-300">
                                 {terminalPriceLabel(row)}
+                              </td>
+                              <td className="max-w-[8rem] truncate px-3 py-2.5 font-mono text-[11px] text-zinc-500" title={row.tag}>
+                                {row.tag ?? "—"}
                               </td>
                               <td className="px-4 py-2.5">
                                 <span className="inline-block rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-300">

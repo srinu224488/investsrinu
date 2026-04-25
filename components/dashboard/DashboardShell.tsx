@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import MongoDbStatusBanner from "./MongoDbStatusBanner";
+import { useKiteSession } from "./KiteSessionProvider";
 
 const KiteHeaderSession = dynamic(() => import("./KiteHeaderSession"), {
   ssr: false,
@@ -20,6 +22,7 @@ const primaryNav = [
   { href: "/orderflow", label: "Order flow" },
   { href: "/automated-orders", label: "Automated orders" },
   { href: "/webhook-errors", label: "Webhook errors" },
+  { href: "/logs", label: "Logs" },
   { href: "/strategy-lab", label: "Strategy lab" },
   { href: "/ma-cross", label: "MA cross" },
   { href: "/yfinance", label: "Yahoo Finance" },
@@ -84,6 +87,17 @@ function NavIcon({ name }: { name: (typeof primaryNav)[number]["label"] }) {
           />
         </svg>
       );
+    case "Logs":
+      return (
+        <svg className={common} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"
+          />
+        </svg>
+      );
     case "Strategy lab":
       return (
         <svg className={common} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -133,8 +147,46 @@ function NavIcon({ name }: { name: (typeof primaryNav)[number]["label"] }) {
   }
 }
 
+function LoginWall() {
+  return (
+    <div className="flex flex-1 items-center justify-center px-4 py-16">
+      <div className="w-full max-w-sm text-center">
+        <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500 text-2xl font-bold text-white shadow-md">
+          K
+        </span>
+        <p className="mt-5 text-sm text-zinc-500 dark:text-zinc-400">
+          All data on this site — orders, positions, webhooks, charts — requires an active Zerodha Kite session.
+        </p>
+        <a
+          href="/api/kite/login"
+          className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 active:scale-[0.99]"
+        >
+          Connect
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function LoginWallSkeleton() {
+  return (
+    <div className="flex flex-1 items-center justify-center px-4 py-16">
+      <div className="w-full max-w-sm space-y-4 text-center">
+        <div className="mx-auto h-14 w-14 animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-700" />
+        <div className="mx-auto h-5 w-48 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
+        <div className="mx-auto h-4 w-64 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
+        <div className="mx-auto h-11 w-full animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+      </div>
+    </div>
+  );
+}
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { profile } = useKiteSession();
+
+  const isLoading = profile === null;
+  const isConnected = profile?.connected === true;
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100/80 dark:bg-zinc-950">
@@ -180,38 +232,48 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col md:flex-row md:items-stretch">
-        <aside className="flex shrink-0 flex-col border-b border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900 md:w-14 md:border-b-0 md:border-r">
-          <nav
-            className="flex h-full min-h-0 w-full justify-center gap-1 overflow-x-auto px-2 py-3 md:flex-col md:items-center md:justify-start md:px-0 md:py-4"
-            aria-label="Main"
-          >
-            {primaryNav.map(({ href, label }) => {
-              const active =
-                href === "/"
-                  ? pathname === "/"
-                  : pathname === href || pathname.startsWith(`${href}/`);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  title={label}
-                  aria-label={label}
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                    active
-                      ? "bg-teal-50 text-teal-900 dark:bg-teal-950/50 dark:text-teal-100"
-                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                  }`}
-                >
-                  <NavIcon name={label} />
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
+      <MongoDbStatusBanner />
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">{children}</div>
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col md:flex-row md:items-stretch">
+        {isConnected && (
+          <aside className="flex shrink-0 flex-col border-b border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900 md:w-14 md:border-b-0 md:border-r">
+            <nav
+              className="flex h-full min-h-0 w-full justify-center gap-1 overflow-x-auto px-2 py-3 md:flex-col md:items-center md:justify-start md:px-0 md:py-4"
+              aria-label="Main"
+            >
+              {primaryNav.map(({ href, label }) => {
+                const active =
+                  href === "/"
+                    ? pathname === "/"
+                    : pathname === href || pathname.startsWith(`${href}/`);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    title={label}
+                    aria-label={label}
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                      active
+                        ? "bg-teal-50 text-teal-900 dark:bg-teal-950/50 dark:text-teal-100"
+                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    }`}
+                  >
+                    <NavIcon name={label} />
+                  </Link>
+                );
+              })}
+            </nav>
+          </aside>
+        )}
+
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
+          {isLoading ? (
+            <LoginWallSkeleton />
+          ) : isConnected ? (
+            <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">{children}</div>
+          ) : (
+            <LoginWall />
+          )}
         </main>
       </div>
     </div>

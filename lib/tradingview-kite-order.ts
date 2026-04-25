@@ -43,16 +43,32 @@ function parseTickerExchange(
   return undefined;
 }
 
+/** Kite cash / universal product codes we accept from TV JSON or delimited field 7. */
+const EQUITY_PRODUCTS = new Set(["MIS", "NRML", "CNC", "BO", "CO"]);
+
+/** MCX / NFO: MIS (intraday) or NRML (carry); default NRML when omitted (matches prior behaviour). */
+const DERIV_PRODUCTS = new Set(["MIS", "NRML"]);
+
 /**
- * MCX / NFO: NRML. Other exchanges: explicit `product` if present, else
- * `KITE_TV_WEBHOOK_DEFAULT_PRODUCT` (e.g. CNC), or MIS — so TV delimited / minimal JSON works without `product`.
+ * Resolves `product` from webhook JSON / delimited `__…__product` segment.
+ * MCX & NFO: uses explicit MIS or NRML when sent; otherwise defaults to NRML (ignores CNC etc.).
+ * NSE/BSE: explicit whitelist or `KITE_TV_WEBHOOK_DEFAULT_PRODUCT`, else MIS.
  */
 function productForExchange(exchange: string, explicitProduct: string | undefined): string {
-  if (exchange === "MCX" || exchange === "NFO") return "NRML";
-  const p = explicitProduct?.trim();
-  if (p) return p.toUpperCase();
-  const fromEnv = process.env.KITE_TV_WEBHOOK_DEFAULT_PRODUCT?.trim();
-  if (fromEnv) return fromEnv.toUpperCase();
+  const raw = explicitProduct?.trim();
+  const p = raw ? raw.toUpperCase() : "";
+  const deriv = exchange === "MCX" || exchange === "NFO";
+
+  if (deriv) {
+    if (p && DERIV_PRODUCTS.has(p)) return p;
+    return "NRML";
+  }
+
+  if (p && EQUITY_PRODUCTS.has(p)) return p;
+
+  const fromEnv = process.env.KITE_TV_WEBHOOK_DEFAULT_PRODUCT?.trim()?.toUpperCase();
+  if (fromEnv && EQUITY_PRODUCTS.has(fromEnv)) return fromEnv;
+
   return "MIS";
 }
 
@@ -60,7 +76,7 @@ function productForExchange(exchange: string, explicitProduct: string | undefine
  * Map TradingView alert JSON (or Kite-shaped JSON) to Kite Connect place-order fields.
  * Supports pass-through when body already has tradingsymbol, transaction_type, quantity, product, order_type.
  * TV-style alerts (`ticker` + `action`/`event`): `contracts` / `position_size` / `quantity` default to 1 when omitted.
- * `product` optional: MCX/NFO → NRML; otherwise defaults to MIS (override with `KITE_TV_WEBHOOK_DEFAULT_PRODUCT` or `product` in JSON).
+ * `product` optional: MCX/NFO → explicit MIS/NRML when present, else NRML; NSE defaults to MIS (override with `KITE_TV_WEBHOOK_DEFAULT_PRODUCT` or `product` in JSON).
  * `action`/`event`: BUY/B/LONG → long (BUY), SELL/S/SHORT → short (SELL) on Kite.
  */
 export function mapTradingViewBodyToKiteOrder(

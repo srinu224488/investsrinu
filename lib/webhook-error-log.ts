@@ -96,44 +96,56 @@ export type AppendWebhookErrorLogInput = {
 /**
  * Persists a webhook-side failure for the UI. Does not throw (logging must not break webhooks).
  */
+function pushMemoryError(input: AppendWebhookErrorLogInput, loggedAt: Date): void {
+  const row: WebhookErrorLogRow = {
+    id: randomUUID(),
+    loggedAt: loggedAt.toISOString(),
+    source: input.source,
+    message: input.message,
+    error_type: input.error_type,
+    webhook_event_id: input.webhook_event_id,
+    detail: input.detail,
+  };
+  buffer.unshift(row);
+  if (buffer.length > MAX) buffer.length = MAX;
+}
+
 export async function appendWebhookErrorLog(
   input: AppendWebhookErrorLogInput,
 ): Promise<void> {
-  try {
-    const db = await getMongoDb();
-    const loggedAt = new Date();
-    const doc = {
-      loggedAt,
-      source: input.source,
-      message: input.message,
-      ...(input.error_type ? { error_type: input.error_type } : {}),
-      ...(input.webhook_event_id
-        ? { webhook_event_id: input.webhook_event_id }
-        : {}),
-      ...(input.detail && Object.keys(input.detail).length > 0
-        ? { detail: input.detail }
-        : {}),
-    };
+  const loggedAt = new Date();
+  const doc = {
+    loggedAt,
+    source: input.source,
+    message: input.message,
+    ...(input.error_type ? { error_type: input.error_type } : {}),
+    ...(input.webhook_event_id
+      ? { webhook_event_id: input.webhook_event_id }
+      : {}),
+    ...(input.detail && Object.keys(input.detail).length > 0
+      ? { detail: input.detail }
+      : {}),
+  };
 
-    if (db) {
+  let db: Awaited<ReturnType<typeof getMongoDb>>;
+  try {
+    db = await getMongoDb();
+  } catch {
+    pushMemoryError(input, loggedAt);
+    return;
+  }
+
+  if (db) {
+    try {
       await db.collection(COLLECTION).insertOne(doc);
       return;
+    } catch {
+      pushMemoryError(input, loggedAt);
+      return;
     }
-
-    const row: WebhookErrorLogRow = {
-      id: randomUUID(),
-      loggedAt: loggedAt.toISOString(),
-      source: input.source,
-      message: input.message,
-      error_type: input.error_type,
-      webhook_event_id: input.webhook_event_id,
-      detail: input.detail,
-    };
-    buffer.unshift(row);
-    if (buffer.length > MAX) buffer.length = MAX;
-  } catch {
-    // ignore persistence failures
   }
+
+  pushMemoryError(input, loggedAt);
 }
 
 export async function listWebhookErrorLogPage(params?: {
@@ -142,7 +154,12 @@ export async function listWebhookErrorLogPage(params?: {
 }): Promise<WebhookErrorLogPage> {
   const limit = clampLimit(params?.limit);
   const offset = clampOffset(params?.offset);
-  const db = await getMongoDb();
+  let db: Awaited<ReturnType<typeof getMongoDb>>;
+  try {
+    db = await getMongoDb();
+  } catch {
+    db = null;
+  }
 
   if (db) {
     const coll = db.collection(COLLECTION);

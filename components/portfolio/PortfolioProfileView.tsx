@@ -50,7 +50,7 @@ function renderPositionTableBody(groups: PositionGroup[], kind: "net" | "day"): 
   if (flatCount === 0) {
     return (
       <tr>
-        <td colSpan={10} className="px-3 py-6 text-center text-zinc-500 dark:text-zinc-400">
+        <td colSpan={12} className="px-3 py-6 text-center text-zinc-500 dark:text-zinc-400">
           No positions match filters.
         </td>
       </tr>
@@ -61,7 +61,7 @@ function renderPositionTableBody(groups: PositionGroup[], kind: "net" | "day"): 
       {g.group ? (
         <tr className="bg-zinc-100 dark:bg-zinc-800/90">
           <td
-            colSpan={10}
+            colSpan={12}
             className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400"
           >
             {g.group}
@@ -74,6 +74,9 @@ function renderPositionTableBody(groups: PositionGroup[], kind: "net" | "day"): 
         const ur = num(r.unrealised);
         const rl = num(r.realised);
         const pnl = num(r.pnl);
+        const ltp = num(r.last_price);
+        const prevClose = num(r.close_price);
+        const dayChgPct = prevClose > 0 ? ((ltp - prevClose) / prevClose) * 100 : null;
         return (
           <tr key={key} className="border-b border-zinc-100 dark:border-zinc-800">
             <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">{sym}</td>
@@ -81,7 +84,13 @@ function renderPositionTableBody(groups: PositionGroup[], kind: "net" | "day"): 
             <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{String(r.product ?? "—")}</td>
             <td className="px-3 py-2 text-right font-mono tabular-nums">{fmtQty(num(r.quantity))}</td>
             <td className="px-3 py-2 text-right font-mono tabular-nums">{num(r.average_price).toFixed(2)}</td>
-            <td className="px-3 py-2 text-right font-mono tabular-nums">{num(r.last_price).toFixed(2)}</td>
+            <td className="px-3 py-2 text-right font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+              {prevClose > 0 ? prevClose.toFixed(2) : "—"}
+            </td>
+            <td className="px-3 py-2 text-right font-mono tabular-nums">{ltp.toFixed(2)}</td>
+            <td className={`px-3 py-2 text-right font-mono tabular-nums ${dayChgPct != null ? pnlToneClass(dayChgPct) : "text-zinc-400"}`}>
+              {dayChgPct != null ? `${dayChgPct >= 0 ? "+" : ""}${dayChgPct.toFixed(2)}%` : "—"}
+            </td>
             <td className="px-3 py-2 text-right font-mono tabular-nums">{fmtAmt2(num(r.value))}</td>
             <td className={`px-3 py-2 text-right font-mono tabular-nums ${pnlToneClass(ur)}`}>{fmtAmt2(ur)}</td>
             <td className={`px-3 py-2 text-right font-mono tabular-nums ${pnlToneClass(rl)}`}>{fmtAmt2(rl)}</td>
@@ -172,7 +181,7 @@ export default function PortfolioProfileView() {
         setData(null);
         setErr(
           j.error === "not_connected"
-            ? "Connect Zerodha (Kite) to load holdings and positions."
+            ? "Connect (Kite) to load holdings and positions."
             : j.error || r.statusText,
         );
         return;
@@ -363,14 +372,14 @@ export default function PortfolioProfileView() {
       <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-200">
         <p className="font-medium text-zinc-900 dark:text-zinc-100">Portfolio stream is off</p>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          Connect Zerodha (Kite) on this site to load holdings and positions. No live connection is opened while you
+          Connect (Kite) on this site to load holdings and positions. No live connection is opened while you
           are logged out.
         </p>
         <a
           href="/api/kite/login"
           className="mt-3 inline-flex rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700"
         >
-          Connect Zerodha
+          Connect
         </a>
       </div>
     );
@@ -786,7 +795,7 @@ export default function PortfolioProfileView() {
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full min-w-[880px] text-left text-xs">
+          <table className="w-full min-w-[1020px] text-left text-xs">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/80">
                 <th className="px-3 py-2 font-medium">Symbol</th>
@@ -794,7 +803,9 @@ export default function PortfolioProfileView() {
                 <th className="px-3 py-2 font-medium">Product</th>
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-right font-medium">Avg (₹)</th>
+                <th className="px-3 py-2 text-right font-medium">Prev Close</th>
                 <th className="px-3 py-2 text-right font-medium">LTP (₹)</th>
+                <th className="px-3 py-2 text-right font-medium">Day Chg%</th>
                 <th className="px-3 py-2 text-right font-medium">Value</th>
                 <th className="px-3 py-2 text-right font-medium">Unrealised</th>
                 <th className="px-3 py-2 text-right font-medium">Realised</th>
@@ -838,7 +849,7 @@ export default function PortfolioProfileView() {
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full min-w-[880px] text-left text-xs">
+          <table className="w-full min-w-[1020px] text-left text-xs">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/80">
                 <th className="px-3 py-2 font-medium">Symbol</th>
@@ -846,7 +857,9 @@ export default function PortfolioProfileView() {
                 <th className="px-3 py-2 font-medium">Product</th>
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-right font-medium">Avg (₹)</th>
+                <th className="px-3 py-2 text-right font-medium">Prev Close</th>
                 <th className="px-3 py-2 text-right font-medium">LTP (₹)</th>
+                <th className="px-3 py-2 text-right font-medium">Day Chg%</th>
                 <th className="px-3 py-2 text-right font-medium">Value</th>
                 <th className="px-3 py-2 text-right font-medium">Unrealised</th>
                 <th className="px-3 py-2 text-right font-medium">Realised</th>
